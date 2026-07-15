@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bloom · Cycle Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --forest:#2f6b46;
+    --forest-dark:#1f4d34;
+    --forest-light:#d9ecdf;
+    --pink:#ffb6cf;
+    --pink-deep:#ee7fa0;
+    --pink-pale:#ffe6ef;
+    --cream:#fbf7f1;
+    --ink:#2b3a30;
+    --gray:#7d8a82;
+    --card:#ffffff;
+    --line:#e7ece6;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:'Baloo 2','Fredoka',ui-rounded,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(160deg,#ffe0ec,#eaf4ec 60%,#e2f0e8);
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh;
+    color:var(--ink);
+  }
+  .phone{
+    width:390px; height:800px; max-height:96vh;
+    background:var(--cream);
+    border-radius:44px;
+    box-shadow:0 30px 60px rgba(40,80,55,0.22), 0 0 0 10px #1c1c1e;
+    overflow:hidden;
+    position:relative;
+    display:flex; flex-direction:column;
+  }
+  .notch{
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:150px; height:26px; background:#1c1c1e; border-radius:0 0 18px 18px; z-index:150;
+  }
+  /* ---- Splash ---- */
+  .splash{
+    position:absolute; inset:0; z-index:500;
+    background:linear-gradient(160deg,var(--forest),var(--pink-deep));
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:40px; cursor:pointer;
+    transition:opacity .5s ease, visibility .5s ease;
+  }
+  .splash.hide{opacity:0; visibility:hidden; pointer-events:none;}
+  .splash .heart{font-size:46px; margin-bottom:14px; animation:pulse 1.4s ease-in-out infinite;}
+  .splash h1{color:#fff; font-size:32px; margin:0; font-weight:800; letter-spacing:.3px; text-shadow:0 2px 10px rgba(0,0,0,0.12);}
+  .splash p{color:rgba(255,255,255,0.9); font-size:13px; margin-top:10px; font-weight:500;}
+  @keyframes pulse{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.12);} }
+
+  .status-bar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 26px 4px; font-size:13px; font-weight:600; color:var(--ink);
+    flex-shrink:0;
+  }
+  .status-bar .icons{display:flex; gap:5px; align-items:center;}
+  .app-header{
+    padding:6px 22px 14px; flex-shrink:0;
+  }
+  .app-header h1{
+    margin:0; font-size:23px; font-weight:800; color:var(--forest-dark);
+    letter-spacing:-0.2px;
+  }
+  .app-header .sub{font-size:13px; color:var(--gray); margin-top:2px; font-weight:500;}
+  .content{
+    flex:1; overflow-y:auto; padding:0 18px 18px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .content::-webkit-scrollbar{display:none;}
+  .card{
+    background:var(--card); border-radius:22px; padding:18px;
+    margin-bottom:14px; box-shadow:0 4px 18px rgba(60,110,80,0.08);
+  }
+  .card h3{margin:0 0 10px; font-size:14px; color:var(--gray); font-weight:700; text-transform:uppercase; letter-spacing:.4px;}
+
+  /* Home */
+  .ring-wrap{display:flex; flex-direction:column; align-items:center; padding:10px 0 4px;}
+  .ring{
+    width:190px; height:190px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .ring::before{
+    content:""; position:absolute; inset:10px; background:var(--card); border-radius:50%;
+  }
+  .ring .inner{position:relative; text-align:center;}
+  .ring .day-label{font-size:12px; color:var(--gray); font-weight:700; letter-spacing:.5px; text-transform:uppercase;}
+  .ring .day-num{font-size:42px; font-weight:800; color:var(--forest-dark); line-height:1.1;}
+  .ring .phase{font-size:13px; color:var(--pink-deep); font-weight:700; margin-top:2px;}
+  .countdown-row{display:flex; gap:10px; margin-top:16px;}
+  .pill{
+    flex:1; background:var(--pink-pale); border-radius:16px; padding:12px; text-align:center;
+  }
+  .pill.green{background:var(--forest-light);}
+  .pill .num{font-size:20px; font-weight:800; color:var(--forest-dark);}
+  .pill.green .num{color:var(--forest);}
+  .pill .lbl{font-size:11px; color:var(--gray); font-weight:600; margin-top:2px;}
+  .btn{
+    display:block; width:100%; text-align:center; border:none; border-radius:16px;
+    padding:14px; font-size:15px; font-weight:700; cursor:pointer; margin-top:8px;
+    font-family:inherit;
+  }
+  .btn-primary{background:var(--forest); color:#fff;}
+  .btn-secondary{background:var(--pink-pale); color:var(--pink-deep);}
+  .btn-outline{background:#fff; color:var(--forest-dark); border:1.5px solid var(--forest-light);}
+  .btn-danger{background:#fdeeee; color:#c94848;}
+  .row-2{display:flex; gap:10px;}
+  .row-2 .btn{flex:1;}
+
+  /* Calendar */
+  .cal-nav{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .cal-nav button{background:none; border:none; font-size:20px; color:var(--forest-dark); cursor:pointer; padding:4px 10px;}
+  .cal-nav .month-label{font-weight:800; font-size:16px;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;}
+  .cal-grid .dow{font-size:11px; color:var(--gray); font-weight:700; padding-bottom:4px;}
+  .day-cell{
+    position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+    font-size:13px; border-radius:50%; cursor:pointer; color:var(--ink); font-weight:600;
+  }
+  .day-cell.muted{color:#d8cdd4;}
+  .day-cell.today{box-shadow:inset 0 0 0 2px var(--forest-dark);}
+  .day-cell.period{background:var(--pink-deep); color:#fff;}
+  .day-cell.period-predicted{background:var(--pink-pale); color:var(--pink-deep);}
+  .day-cell.fertile{background:var(--forest-light); color:var(--forest);}
+  .day-cell.ovulation{background:var(--forest); color:#fff;}
+  .day-cell .dot{position:absolute; bottom:2px; width:4px; height:4px; border-radius:50%; background:var(--forest-dark);}
+  .day-cell .heart-mark{position:absolute; top:-3px; right:-2px; font-size:9px; line-height:1;}
+  .legend{display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;}
+  .legend span{font-size:11px; color:var(--gray); display:flex; align-items:center; gap:5px;}
+  .legend i{width:9px; height:9px; border-radius:50%; display:inline-block;}
+
+  /* Chips */
+  .chip-grid{display:flex; flex-wrap:wrap; gap:8px;}
+  .chip{
+    padding:9px 14px; border-radius:20px; background:var(--pink-pale); color:var(--ink);
+    font-size:13px; font-weight:600; cursor:pointer; border:1.5px solid transparent;
+  }
+  .chip.active{background:var(--forest); color:#fff;}
+  .chip.mood.active{background:var(--pink-deep);}
+  .chip.sex.active{background:var(--pink-deep);}
+  label.field-label{font-size:12px; color:var(--gray); font-weight:700; display:block; margin:14px 0 6px;}
+  label.field-label:first-child{margin-top:0;}
+  input[type=date], input[type=number], input[type=text], textarea{
+    width:100%; padding:11px 12px; border-radius:12px; border:1.5px solid var(--line);
+    font-size:14px; font-family:inherit; color:var(--ink); background:#fdfcfa;
+  }
+  textarea{resize:none; min-height:60px;}
+
+  /* Insights */
+  .stat-grid{display:flex; gap:10px;}
+  .stat-box{flex:1; background:var(--pink-pale); border-radius:16px; padding:12px; text-align:center;}
+  .stat-box .num{font-size:20px; font-weight:800; color:var(--forest-dark);}
+  .stat-box .lbl{font-size:10.5px; color:var(--gray); font-weight:600; margin-top:2px;}
+  .bar-row{margin-bottom:10px;}
+  .bar-row .top{display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:4px; font-weight:600;}
+  .bar-track{background:var(--line); border-radius:8px; height:8px; overflow:hidden;}
+  .bar-fill{background:var(--forest); height:100%; border-radius:8px;}
+  .cycle-history-item{display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
+  .cycle-history-item:last-child{border-bottom:none;}
+  .cycle-history-item .len{color:var(--gray); font-weight:600;}
+
+  /* Bottom nav */
+  .bottom-nav{
+    display:flex; justify-content:space-around; align-items:center;
+    padding:8px 6px calc(env(safe-area-inset-bottom,0px) + 8px);
+    background:#fff; border-top:1px solid var(--line); flex-shrink:0;
+    position:relative;
+  }
+  .nav-indicator{
+    position:absolute; top:6px; bottom:calc(env(safe-area-inset-bottom,0px) + 6px); left:6px;
+    width:calc((100% - 12px) / 5); background:var(--pink-pale); border-radius:16px;
+    transition:transform .38s cubic-bezier(.22,1,.36,1); z-index:0;
+  }
+  .nav-btn{
+    background:none; border:none; display:flex; flex-direction:column; align-items:center;
+    gap:3px; color:#c7ccc5; cursor:pointer; padding:4px 10px; flex:1; font-family:inherit;
+    position:relative; z-index:1;
+  }
+  .nav-btn.active{color:var(--forest-dark);}
+  .nav-btn span{font-size:10.5px; font-weight:700;}
+
+  /* Onboarding */
+  .onboard{
+    position:absolute; inset:0; background:linear-gradient(160deg,var(--forest),var(--pink-deep));
+    z-index:100; display:flex; flex-direction:column; padding:60px 26px 30px; color:#fff;
+    overflow-y:auto;
+  }
+  .onboard h1{font-size:29px; margin:0 0 6px;}
+  .onboard p.tag{opacity:.92; font-size:14px; margin:0 0 30px;}
+  .onboard label{font-size:13px; font-weight:700; display:block; margin:16px 0 6px; opacity:.95;}
+  .onboard input{
+    width:100%; padding:13px 14px; border-radius:14px; border:none; font-size:15px;
+    background:rgba(255,255,255,0.94); color:var(--ink); font-family:inherit;
+  }
+  .onboard .btn-primary{background:#fff; color:var(--forest-dark); margin-top:28px;}
+
+  /* Sheet */
+  .sheet-overlay{
+    position:absolute; inset:0; background:rgba(30,60,40,0); z-index:80;
+    display:flex; align-items:flex-end;
+    transition:background-color .3s ease;
+  }
+  .sheet-overlay.show{ background:rgba(30,60,40,0.35); }
+  .sheet{
+    background:var(--cream); width:100%; border-radius:26px 26px 0 0; padding:20px 20px 26px;
+    max-height:80%; overflow-y:auto;
+    transform:translateY(100%);
+    transition:transform .36s cubic-bezier(.22,1,.36,1);
+  }
+  .sheet-overlay.show .sheet{ transform:translateY(0); }
+  .sheet-handle{width:38px; height:4px; background:var(--line); border-radius:3px; margin:0 auto 14px;}
+  .sheet-title{font-size:17px; font-weight:800; margin-bottom:2px;}
+  .sheet-sub{font-size:12.5px; color:var(--gray); margin-bottom:14px;}
+  .toast{
+    position:absolute; bottom:90px; left:50%; transform:translateX(-50%);
+    background:var(--forest-dark); color:#fff; padding:10px 18px; border-radius:14px; font-size:13px;
+    font-weight:600; z-index:200; opacity:0; transition:opacity .25s;
+    pointer-events:none;
+  }
+  .toast.show{opacity:1;}
+  .empty-note{font-size:13px; color:var(--gray); text-align:center; padding:16px 6px;}
+  .insight-card{background:var(--forest-light);}
+  .insight-card h3{color:var(--forest-dark);}
+  .insight-line{font-size:13px; line-height:1.5; margin-bottom:8px; color:var(--ink);}
+  .insight-line:last-of-type{margin-bottom:0;}
+  .insight-disclaimer{font-size:11px; color:var(--gray); margin-top:10px; font-style:italic;}
+
+  /* ---- transitions & tactile feedback ---- */
+  .btn, .chip, .day-cell, .nav-btn{ transition:transform .15s ease, background-color .2s ease, color .2s ease, box-shadow .2s ease; }
+  .btn:active, .chip:active, .day-cell:active{ transform:scale(0.95); }
+  .nav-btn:active{ transform:scale(0.9); }
+
+  .content-anim{ animation:screenIn .42s cubic-bezier(.22,1,.36,1); }
+  @keyframes screenIn{
+    from{ opacity:0; transform:translateY(18px) scale(.985); }
+    to{ opacity:1; transform:translateY(0) scale(1); }
+  }
+
+  @media (max-width:480px){
+    body{background:var(--cream);}
+    .phone{width:100%; height:100vh; max-height:none; border-radius:0; box-shadow:none;}
+    .notch{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="phone" id="phone">
+  <div class="splash" id="splash">
+    <div class="heart">💚💗</div>
+    <h1>I Love You Izabella</h1>
+    <p>tap anywhere to continue</p>
+  </div>
+  <div class="notch"></div>
+  <div class="status-bar">
+    <span id="clock">9:41</span>
+    <div class="icons">
+      <span>●●●●</span><span>Wi-Fi</span><span>100%</span>
+    </div>
+  </div>
+  <div class="app-header">
+    <h1 id="header-title">Bloom</h1>
+    <div class="sub" id="header-sub"></div>
+  </div>
+  <div class="content" id="content"></div>
+  <div class="bottom-nav" id="bottom-nav"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var STORAGE_KEY = "bloomCycleData_v2";
+  var REMINDER_LAST_KEY = "bloomLastReminderDate";
+  var OWNER_NAME = "Izabella";
+  var REMINDER_TEXT = "I Love You -Lawson";
+  var SYMPTOMS = ["Cramps","Headache","Bloating","Fatigue","Tender Breasts","Acne","Backache","Nausea","Cravings","Insomnia"];
+  var MOODS = ["Happy","Calm","Energetic","Sad","Irritable","Anxious","Sensitive"];
+  var FLOWS = ["None","Spotting","Light","Medium","Heavy"];
+  var NAV = [
+    {id:"home", label:"Home", icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>'},
+    {id:"calendar", label:"Calendar", icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>'},
+    {id:"log", label:"Log", icon:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>'},
+    {id:"insights", label:"Insights", icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V10M10 20V4M17 20v-7"/></svg>'},
+    {id:"settings", label:"Settings", icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.9 2.9l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.9-2.9l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.9-2.9l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.9 2.9l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>'}
+  ];
+
+  var state = { tab:"home", calMonth:null, sheet:null, logDate:null };
+
+  // ---------- date helpers ----------
+  function fmt(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function parseD(s){ var p=s.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]); }
+  function addDays(d,n){ var r=new Date(d); r.setDate(r.getDate()+n); return r; }
+  function diffDays(a,b){ return Math.round((stripT(a)-stripT(b))/86400000); }
+  function stripT(d){ return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime(); }
+  function today(){ return new Date(); }
+  function niceDate(d){ return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
+  function niceDateFull(d){ return d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"}); }
+
+  // ---------- data ----------
+  function loadData(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){ var parsed = JSON.parse(raw); parsed.name = OWNER_NAME; return parsed; }
+    }catch(e){}
+    return { onboarded:false, name:OWNER_NAME, cycleLength:28, periodLength:5, periods:[], logs:{}, reminderEnabled:false };
+  }
+  function saveData(){ data.name = OWNER_NAME; localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+  var data = loadData();
+  if(typeof data.reminderEnabled === "undefined") data.reminderEnabled = false;
+
+  function sortedPeriods(){
+    return data.periods.slice().sort(function(a,b){ return parseD(a.start)-parseD(b.start); });
+  }
+
+  // average cycle length in days, computed from the gaps between consecutive
+  // logged period start dates; falls back to the configured default when
+  // fewer than two periods have been logged.
+  function avgCycleLength(){
+    var sp = sortedPeriods();
+    if(sp.length < 2) return data.cycleLength || 28;
+    var diffs = [];
+    for(var i=1;i<sp.length;i++){ diffs.push(diffDays(parseD(sp[i].start), parseD(sp[i-1].start))); }
+    var sum = diffs.reduce(function(a,b){return a+b;},0);
+    return Math.round(sum/diffs.length);
+  }
+
+  function avgPeriodLength(){
+    var sp = sortedPeriods();
+    var lens = sp.filter(function(p){return p.end;}).map(function(p){ return diffDays(parseD(p.end),parseD(p.start))+1; });
+    if(lens.length===0) return data.periodLength || 5;
+    return Math.round(lens.reduce(function(a,b){return a+b;},0)/lens.length);
+  }
+
+  // Builds an ordered list of cycle blocks: one per logged period (using the
+  // *actual* gap to the next logged period when known, which keeps historical
+  // ovulation/fertile-window estimates accurate) plus 6 projected future
+  // cycles built from the rolling average cycle length.
+  // Ovulation is estimated as 14 days before the next period start (a fixed
+  // luteal phase length, the standard clinical approximation), and the
+  // fertile window spans 5 days before ovulation through 1 day after it.
+  function cycleInfos(){
+    var sp = sortedPeriods();
+    var avgLen = avgCycleLength();
+    var pLen = data.periodLength || 5;
+    var infos = [];
+    for(var i=0;i<sp.length;i++){
+      var start = parseD(sp[i].start);
+      var end = sp[i].end ? parseD(sp[i].end) : addDays(start, pLen-1);
+      var nextStart = (i+1<sp.length) ? parseD(sp[i+1].start) : addDays(start, avgLen);
+      var ov = addDays(nextStart, -14);
+      infos.push({
+        start:start, end:end, nextStart:nextStart,
+        ovulation:ov, fertileStart:addDays(ov,-5), fertileEnd:addDays(ov,1),
+        predicted:false
+      });
+    }
+    var lastStart = sp.length ? parseD(sp[sp.length-1].start) : today();
+    for(var k=1;k<=6;k++){
+      var s = addDays(lastStart, k*avgLen);
+      var e = addDays(s, pLen-1);
+      var ns = addDays(s, avgLen);
+      var ov2 = addDays(ns, -14);
+      infos.push({
+        start:s, end:e, nextStart:ns,
+        ovulation:ov2, fertileStart:addDays(ov2,-5), fertileEnd:addDays(ov2,1),
+        predicted:true
+      });
+    }
+    return infos;
+  }
+
+  function findCycleInfoForDate(d){
+    var infos = cycleInfos();
+    for(var i=0;i<infos.length;i++){
+      if(stripT(infos[i].start) <= stripT(d) && stripT(d) < stripT(infos[i].nextStart)) return infos[i];
+    }
+    return infos.length ? infos[infos.length-1] : null;
+  }
+
+  function currentCycleInfo(){
+    return findCycleInfoForDate(today());
+  }
+
+  // ---------- gentle symptom insights ----------
+  // Plain-language, mainstream-medical explanations (the kind you'd find on
+  // Mayo Clinic / ACOG patient-education pages) for common cycle-related
+  // symptoms. Intentionally non-diagnostic and non-alarming — this is
+  // general cycle education, not a medical assessment.
+  var SYMPTOM_INFO = {
+    "Cramps": "Cramping before or during a period is caused by prostaglandins, which make the uterus contract to shed its lining — this is very common and usually not a cause for concern.",
+    "Headache": "Headaches around your period are often linked to the natural drop in estrogen that happens at this point in the cycle.",
+    "Bloating": "Bloating in the days before a period is common and is usually related to hormonal shifts affecting fluid retention.",
+    "Fatigue": "Extra tiredness before a period is common — progesterone rises and then falls sharply, which can affect energy and sleep.",
+    "Tender Breasts": "Breast tenderness in the second half of the cycle is common and is linked to rising progesterone and estrogen.",
+    "Acne": "Breakouts before a period are common, often linked to a relative rise in androgens in the days leading up to menstruation.",
+    "Backache": "Lower back ache alongside cramps is common during a period and is usually caused by the same uterine contractions.",
+    "Nausea": "Mild nausea around a period can happen and is usually linked to prostaglandins. If it's ever severe, it's worth mentioning to a doctor.",
+    "Cravings": "Cravings for carbs or sweets are very common in the week before a period, linked to shifting hormone and serotonin levels.",
+    "Insomnia": "Trouble sleeping before a period is common — the drop in progesterone in the luteal phase can affect sleep quality."
+  };
+  var MOOD_INFO = {
+    "Sad": "Low mood in the days before a period is common (often grouped under PMS) and is linked to hormonal shifts affecting serotonin.",
+    "Irritable": "Feeling more irritable before a period is common and hormone-related. If it ever feels intense or disruptive, that's worth a conversation with a doctor.",
+    "Anxious": "Extra anxiety before a period is a common, hormone-related PMS symptom.",
+    "Sensitive": "Feeling more emotionally sensitive before a period is a common, hormone-related PMS symptom."
+  };
+
+  function symptomFrequency(symptom){
+    var count = 0;
+    Object.keys(data.logs).forEach(function(dk){
+      if((data.logs[dk].symptoms||[]).indexOf(symptom) > -1) count++;
+    });
+    return count;
+  }
+
+  // Builds a short, reassuring insight for a given date's log by combining
+  // today's entry with what's been logged before — never a diagnosis, just
+  // gentle, well-established cycle education.
+  function buildInsightLines(dateStr){
+    var log = data.logs[dateStr];
+    if(!log) return [];
+    var d = parseD(dateStr);
+    var c = findCycleInfoForDate(d);
+    var phase = c ? phaseLabel(c, d) : null;
+    var lines = [];
+
+    var symptoms = log.symptoms || [];
+    if((phase==="Ovulation Day" || phase==="Fertile Window") && (symptoms.indexOf("Cramps")>-1 || symptoms.indexOf("Backache")>-1)){
+      lines.push("A mild, one-sided pelvic twinge around ovulation (sometimes called mittelschmerz) is common and normal.");
+    }
+    symptoms.slice(0,2).forEach(function(s){
+      if(SYMPTOM_INFO[s]) lines.push(SYMPTOM_INFO[s]);
+    });
+    if(log.mood && MOOD_INFO[log.mood] && lines.length<3){
+      lines.push(MOOD_INFO[log.mood]);
+    }
+    // gentle pattern note using history, kept factual and non-alarming
+    if(symptoms.length && lines.length<3){
+      var top = symptoms[0];
+      var freq = symptomFrequency(top);
+      if(freq >= 3){
+        lines.push("You've logged \""+top+"\" "+freq+" times before — a consistent pattern for you.");
+      }
+    }
+    return lines.slice(0,3);
+  }
+
+  function insightCardHTML(dateStr){
+    var lines = buildInsightLines(dateStr);
+    if(!lines.length) return "";
+    var html = '<div class="card insight-card"><h3>Gentle Insight</h3>';
+    lines.forEach(function(l){ html += '<div class="insight-line">'+l+'</div>'; });
+    html += '<div class="insight-disclaimer">General cycle education, not a diagnosis — check in with a doctor if anything feels new or severe for you.</div>';
+    html += '</div>';
+    return html;
+  }
+
+  function dayStatus(d){
+    var infos = cycleInfos();
+    var out = {period:false, predictedPeriod:false, fertile:false, ovulation:false};
+    for(var i=0;i<infos.length;i++){
+      var c = infos[i];
+      if(stripT(d) >= stripT(c.start) && stripT(d) <= stripT(c.end)){
+        if(c.predicted) out.predictedPeriod = true; else out.period = true;
+      }
+      if(stripT(d) >= stripT(c.fertileStart) && stripT(d) <= stripT(c.fertileEnd)) out.fertile = true;
+      if(stripT(d) === stripT(c.ovulation)) out.ovulation = true;
+    }
+    return out;
+  }
+
+  // ---------- UI helpers ----------
+  function toast(msg){
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(function(){ t.classList.remove("show"); }, 1600);
+  }
+
+  function updateClock(){
+    document.getElementById("clock").textContent = new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+  }
+  updateClock(); setInterval(updateClock, 30000);
+
+  // ---------- splash ----------
+  function hideSplash(){
+    var s = document.getElementById("splash");
+    if(s) s.classList.add("hide");
+  }
+  document.getElementById("splash").addEventListener("click", hideSplash);
+  setTimeout(hideSplash, 2600);
+
+  // ---------- 8pm reminder ----------
+  function fireReminderNotification(){
+    if(!("Notification" in window) || Notification.permission !== "granted") return false;
+    try{
+      new Notification("Birth Control Reminder 💊", { body: REMINDER_TEXT });
+      return true;
+    }catch(e){ return false; }
+  }
+  function maybeFireNightlyReminder(){
+    if(!data.reminderEnabled) return;
+    if(!("Notification" in window) || Notification.permission !== "granted") return;
+    var now = new Date();
+    if(now.getHours()===20 && now.getMinutes()===0){
+      var todayStr = fmt(now);
+      if(localStorage.getItem(REMINDER_LAST_KEY) !== todayStr){
+        if(fireReminderNotification()) localStorage.setItem(REMINDER_LAST_KEY, todayStr);
+      }
+    }
+  }
+  setInterval(maybeFireNightlyReminder, 20000);
+  maybeFireNightlyReminder();
+
+  function enableReminders(){
+    if(!("Notification" in window)){ toast("Notifications aren't supported in this browser"); return; }
+    Notification.requestPermission().then(function(perm){
+      if(perm === "granted"){ data.reminderEnabled = true; saveData(); toast("Reminder enabled"); }
+      else { data.reminderEnabled = false; saveData(); toast("Notifications permission denied"); }
+      render();
+    });
+  }
+
+  // ---------- rendering ----------
+  function animateContent(el){
+    el.classList.remove("content-anim");
+    void el.offsetWidth; // force reflow so the animation restarts
+    el.classList.add("content-anim");
+  }
+
+  function render(){
+    renderHeader();
+    renderNav();
+    var c = document.getElementById("content");
+    if(!data.onboarded){
+      c.innerHTML = onboardingHTML();
+      bindOnboarding();
+      animateContent(c);
+      return;
+    }
+    if(state.tab==="home") c.innerHTML = homeHTML();
+    else if(state.tab==="calendar") c.innerHTML = calendarHTML();
+    else if(state.tab==="log") c.innerHTML = logHTML();
+    else if(state.tab==="insights") c.innerHTML = insightsHTML();
+    else if(state.tab==="settings") c.innerHTML = settingsHTML();
+    bindTabEvents();
+    renderSheet();
+    animateContent(c);
+  }
+
+  function renderHeader(){
+    var titles = {home:"Bloom", calendar:"Calendar", log:"Log", insights:"Insights", settings:"Settings"};
+    document.getElementById("header-title").textContent = data.onboarded ? (titles[state.tab]||"Bloom") : "Bloom";
+    var sub = "";
+    if(data.onboarded && state.tab==="home"){
+      sub = "Hi " + OWNER_NAME + " · " + today().toLocaleDateString(undefined,{weekday:"long", month:"long", day:"numeric"});
+    }
+    document.getElementById("header-sub").textContent = sub;
+  }
+
+  function renderNav(){
+    var navEl = document.getElementById("bottom-nav");
+    if(!data.onboarded){ navEl.innerHTML = ""; navEl.removeAttribute("data-built"); return; }
+    if(navEl.getAttribute("data-built") !== "1"){
+      navEl.innerHTML = '<div class="nav-indicator" id="nav-indicator"></div>' + NAV.map(function(n){
+        return '<button class="nav-btn" data-nav="'+n.id+'">'+n.icon+'<span>'+n.label+'</span></button>';
+      }).join("");
+      navEl.setAttribute("data-built", "1");
+      Array.prototype.forEach.call(navEl.querySelectorAll("[data-nav]"), function(btn){
+        btn.onclick = function(){ state.tab = btn.getAttribute("data-nav"); render(); };
+      });
+    }
+    var idx = NAV.map(function(n){return n.id;}).indexOf(state.tab);
+    if(idx < 0) idx = 0;
+    Array.prototype.forEach.call(navEl.querySelectorAll(".nav-btn"), function(btn, i){
+      btn.classList.toggle("active", i===idx);
+    });
+    var indicator = document.getElementById("nav-indicator");
+    if(indicator) indicator.style.transform = "translateX("+(idx*100)+"%)";
+  }
+
+  // ---------- Onboarding ----------
+  function onboardingHTML(){
+    return '' +
+    '<div class="onboard">' +
+      '<h1>Welcome, '+OWNER_NAME+' 🌸</h1>' +
+      '<p class="tag">Your cycle, your rhythm. Let\'s set things up.</p>' +
+      '<label>First day of your last period</label>' +
+      '<input type="date" id="ob-last" value="'+fmt(today())+'">' +
+      '<label>Average cycle length (days)</label>' +
+      '<input type="number" id="ob-cycle" value="28" min="15" max="45">' +
+      '<label>Average period length (days)</label>' +
+      '<input type="number" id="ob-period" value="5" min="1" max="10">' +
+      '<button class="btn btn-primary" id="ob-submit">Get Started</button>' +
+    '</div>';
+  }
+  function bindOnboarding(){
+    document.getElementById("ob-submit").onclick = function(){
+      var last = document.getElementById("ob-last").value || fmt(today());
+      var cyc = parseInt(document.getElementById("ob-cycle").value,10) || 28;
+      var per = parseInt(document.getElementById("ob-period").value,10) || 5;
+      data.name = OWNER_NAME;
+      data.cycleLength = cyc;
+      data.periodLength = per;
+      data.periods = [{start:last, end:null}];
+      data.onboarded = true;
+      saveData();
+      render();
+    };
+  }
+
+  // ---------- Home ----------
+  function homeHTML(){
+    var c = currentCycleInfo();
+    var t = today();
+    var html = '<div class="card"><div class="ring-wrap">';
+    if(c){
+      var dayNum = diffDays(t, c.start) + 1;
+      var phase = phaseLabel(c, t);
+      var totalLen = Math.max(1, diffDays(c.nextStart,c.start));
+      var deg = Math.min(360, Math.max(0, (dayNum / totalLen) * 360));
+      html += '<div class="ring" style="background:conic-gradient(var(--forest) 0deg '+deg+'deg, var(--pink-pale) '+deg+'deg 360deg)">' +
+              '<div class="inner"><div class="day-label">Cycle Day</div><div class="day-num">'+dayNum+'</div><div class="phase">'+phase+'</div></div></div>';
+      var untilNext = diffDays(c.nextStart, t);
+      var inFertileNow = stripT(t) >= stripT(c.fertileStart) && stripT(t) <= stripT(c.fertileEnd);
+      var untilFertile = diffDays(c.fertileStart, t);
+      html += '<div class="countdown-row">';
+      html += '<div class="pill"><div class="num">'+(untilNext>=0? untilNext : ("+"+Math.abs(untilNext)))+'</div><div class="lbl">'+(untilNext>=0?"days to period":"days late")+'</div></div>';
+      var fertileNum, fertileLbl;
+      if(inFertileNow){ fertileNum = "Now"; fertileLbl = "fertile window"; }
+      else if(untilFertile > 0){ fertileNum = untilFertile; fertileLbl = "days to fertile window"; }
+      else { fertileNum = "—"; fertileLbl = "fertile window passed"; }
+      html += '<div class="pill green"><div class="num">'+fertileNum+'</div><div class="lbl">'+fertileLbl+'</div></div>';
+      html += '</div>';
+    } else {
+      html += '<div class="empty-note">Log your period to see predictions.</div>';
+    }
+    html += '</div></div>';
+
+    html += '<div class="card"><h3>Quick Actions</h3>';
+    var activePeriod = sortedPeriods().find(function(p){ return !p.end && stripT(parseD(p.start))<=stripT(t); });
+    if(activePeriod){
+      html += '<button class="btn btn-primary" data-action="end-period">End Period Today</button>';
+    } else {
+      html += '<button class="btn btn-primary" data-action="start-period">Start Period Today</button>';
+    }
+    html += '<button class="btn btn-secondary" data-action="log-today">Log Symptoms, Mood &amp; Intimacy</button>';
+    html += '</div>';
+
+    var todayLog = data.logs[fmt(t)];
+    if(todayLog && ((todayLog.symptoms&&todayLog.symptoms.length) || todayLog.mood || (todayLog.flow&&todayLog.flow!=="None") || todayLog.sex)){
+      html += '<div class="card"><h3>Today\'s Log</h3>';
+      if(todayLog.flow && todayLog.flow!=="None") html += '<div style="margin-bottom:6px;">Flow: <strong>'+todayLog.flow+'</strong></div>';
+      if(todayLog.mood) html += '<div style="margin-bottom:6px;">Mood: <strong>'+todayLog.mood+'</strong></div>';
+      if(todayLog.symptoms && todayLog.symptoms.length) html += '<div style="margin-bottom:6px;">Symptoms: <strong>'+todayLog.symptoms.join(", ")+'</strong></div>';
+      if(todayLog.sex) html += '<div>Intimate: <strong>Yes 💗</strong></div>';
+      html += '</div>';
+      html += insightCardHTML(fmt(t));
+    }
+    return html;
+  }
+
+  function phaseLabel(c, t){
+    if(stripT(t) >= stripT(c.start) && stripT(t) <= stripT(c.end)) return "Period";
+    if(stripT(t) === stripT(c.ovulation)) return "Ovulation Day";
+    if(stripT(t) >= stripT(c.fertileStart) && stripT(t) <= stripT(c.fertileEnd)) return "Fertile Window";
+    if(stripT(t) < stripT(c.fertileStart)) return "Follicular Phase";
+    return "Luteal Phase";
+  }
+
+  // ---------- Calendar ----------
+  function calendarHTML(){
+    if(!state.calMonth) state.calMonth = new Date(today().getFullYear(), today().getMonth(), 1);
+    var m = state.calMonth;
+    var monthLabel = m.toLocaleDateString(undefined,{month:"long", year:"numeric"});
+    var firstDow = new Date(m.getFullYear(), m.getMonth(), 1).getDay();
+    var daysInMonth = new Date(m.getFullYear(), m.getMonth()+1, 0).getDate();
+
+    var html = '<div class="card">';
+    html += '<div class="cal-nav"><button data-cal="prev">&#8249;</button><div class="month-label">'+monthLabel+'</div><button data-cal="next">&#8250;</button></div>';
+    html += '<div class="cal-grid">';
+    ["S","M","T","W","T","F","S"].forEach(function(d){ html += '<div class="dow">'+d+'</div>'; });
+    for(var i=0;i<firstDow;i++) html += '<div></div>';
+    for(var day=1; day<=daysInMonth; day++){
+      var d = new Date(m.getFullYear(), m.getMonth(), day);
+      var st = dayStatus(d);
+      var cls = "day-cell";
+      if(st.period) cls += " period";
+      else if(st.ovulation) cls += " ovulation";
+      else if(st.fertile) cls += " fertile";
+      else if(st.predictedPeriod) cls += " period-predicted";
+      if(stripT(d)===stripT(today())) cls += " today";
+      var dLog = data.logs[fmt(d)];
+      var hasLog = !!dLog;
+      var hasSex = !!(dLog && dLog.sex);
+      html += '<div class="'+cls+'" data-day="'+fmt(d)+'">'+day+(hasLog?'<span class="dot"></span>':'')+(hasSex?'<span class="heart-mark">❤</span>':'')+'</div>';
+    }
+    html += '</div>';
+    html += '<div class="legend">' +
+      '<span><i style="background:var(--pink-deep)"></i>Period</span>' +
+      '<span><i style="background:var(--pink-pale)"></i>Predicted</span>' +
+      '<span><i style="background:var(--forest-light)"></i>Fertile</span>' +
+      '<span><i style="background:var(--forest)"></i>Ovulation</span>' +
+      '<span>❤ Intimate</span>' +
+    '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  // ---------- Log ----------
+  function logHTML(){
+    var d = state.logDate || fmt(today());
+    var log = data.logs[d] || {flow:"None", symptoms:[], mood:null, notes:"", sex:false};
+    var t = today();
+    var activePeriod = sortedPeriods().find(function(p){ return !p.end; });
+
+    var html = '<div class="card">';
+    html += '<h3>Period</h3>';
+    if(activePeriod){
+      html += '<div style="margin-bottom:10px; font-size:13.5px; color:var(--gray)">Started '+niceDate(parseD(activePeriod.start))+' · still ongoing</div>';
+      html += '<button class="btn btn-primary" data-action="end-period">End Period Today</button>';
+    } else {
+      html += '<button class="btn btn-primary" data-action="start-period">Start Period Today</button>';
+    }
+    html += '</div>';
+
+    html += '<div class="card">';
+    html += '<h3>Daily Log</h3>';
+    html += '<label class="field-label">Date</label>';
+    html += '<input type="date" id="log-date" value="'+d+'" max="'+fmt(t)+'">';
+
+    html += '<label class="field-label">Flow</label><div class="chip-grid" id="flow-chips">';
+    FLOWS.forEach(function(f){
+      html += '<div class="chip '+(log.flow===f?"active":"")+'" data-flow="'+f+'">'+f+'</div>';
+    });
+    html += '</div>';
+
+    html += '<label class="field-label">Symptoms</label><div class="chip-grid" id="symptom-chips">';
+    SYMPTOMS.forEach(function(s){
+      html += '<div class="chip '+((log.symptoms||[]).indexOf(s)>-1?"active":"")+'" data-symptom="'+s+'">'+s+'</div>';
+    });
+    html += '</div>';
+
+    html += '<label class="field-label">Mood</label><div class="chip-grid" id="mood-chips">';
+    MOODS.forEach(function(mo){
+      html += '<div class="chip mood '+(log.mood===mo?"active":"")+'" data-mood="'+mo+'">'+mo+'</div>';
+    });
+    html += '</div>';
+
+    html += '<label class="field-label">Intimacy — did you have sex today?</label><div class="chip-grid" id="sex-chips">';
+    ["Yes","No"].forEach(function(opt){
+      var isActive = (opt==="Yes") === !!log.sex;
+      html += '<div class="chip sex '+(isActive?"active":"")+'" data-sex="'+opt+'">'+opt+'</div>';
+    });
+    html += '</div>';
+
+    html += '<label class="field-label">Notes</label>';
+    html += '<textarea id="log-notes" placeholder="Anything else worth remembering...">'+(log.notes||"")+'</textarea>';
+
+    html += '<button class="btn btn-primary" data-action="save-log" style="margin-top:16px;">Save Entry</button>';
+    html += '</div>';
+    html += insightCardHTML(d);
+    return html;
+  }
+
+  // ---------- Insights ----------
+  function insightsHTML(){
+    var sp = sortedPeriods();
+    var avgC = avgCycleLength();
+    var avgP = avgPeriodLength();
+    var lens = [];
+    for(var i=1;i<sp.length;i++) lens.push(diffDays(parseD(sp[i].start), parseD(sp[i-1].start)));
+
+    var html = '<div class="card"><h3>Overview</h3><div class="stat-grid">';
+    html += '<div class="stat-box"><div class="num">'+avgC+'</div><div class="lbl">Avg Cycle (days)</div></div>';
+    html += '<div class="stat-box"><div class="num">'+avgP+'</div><div class="lbl">Avg Period (days)</div></div>';
+    html += '<div class="stat-box"><div class="num">'+sp.length+'</div><div class="lbl">Cycles Tracked</div></div>';
+    html += '</div>';
+    if(lens.length){
+      html += '<div style="margin-top:12px; font-size:12.5px; color:var(--gray)">Cycle range: '+Math.min.apply(null,lens)+'–'+Math.max.apply(null,lens)+' days</div>';
+    }
+    var sexCount = Object.keys(data.logs).filter(function(k){ return data.logs[k].sex; }).length;
+    html += '<div style="margin-top:6px; font-size:12.5px; color:var(--gray)">Intimacy logged: '+sexCount+' day'+(sexCount===1?"":"s")+' total</div>';
+    html += '</div>';
+
+    html += '<div class="card"><h3>Cycle History</h3>';
+    if(sp.length===0){
+      html += '<div class="empty-note">No cycles logged yet.</div>';
+    } else {
+      var rev = sp.slice().reverse().slice(0,6);
+      rev.forEach(function(p, idx){
+        var realIdx = sp.length-1-idx;
+        var lenStr = "current";
+        if(realIdx>0) lenStr = diffDays(parseD(sp[realIdx].start), parseD(sp[realIdx-1].start)) + " days";
+        html += '<div class="cycle-history-item"><span>'+niceDate(parseD(p.start))+'</span><span class="len">'+lenStr+'</span></div>';
+      });
+    }
+    html += '</div>';
+
+    // symptom frequency
+    var counts = {};
+    Object.keys(data.logs).forEach(function(dk){
+      (data.logs[dk].symptoms||[]).forEach(function(s){ counts[s] = (counts[s]||0)+1; });
+    });
+    var entries = Object.keys(counts).map(function(k){ return [k, counts[k]]; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0,6);
+    html += '<div class="card"><h3>Common Symptoms</h3>';
+    if(entries.length===0){
+      html += '<div class="empty-note">No symptoms logged yet.</div>';
+    } else {
+      var max = entries[0][1];
+      entries.forEach(function(e){
+        html += '<div class="bar-row"><div class="top"><span>'+e[0]+'</span><span>'+e[1]+'</span></div><div class="bar-track"><div class="bar-fill" style="width:'+(e[1]/max*100)+'%"></div></div></div>';
+      });
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // ---------- Settings ----------
+  function settingsHTML(){
+    var html = '<div class="card"><h3>Profile</h3>';
+    html += '<div style="font-size:14px; font-weight:700; color:var(--forest-dark);">Tracking for '+OWNER_NAME+' 💚</div>';
+    html += '<label class="field-label">Default cycle length (days)</label><input type="number" id="set-cycle" value="'+data.cycleLength+'" min="15" max="45">';
+    html += '<label class="field-label">Default period length (days)</label><input type="number" id="set-period" value="'+data.periodLength+'" min="1" max="10">';
+    html += '<button class="btn btn-primary" data-action="save-settings" style="margin-top:16px;">Save Changes</button>';
+    html += '</div>';
+    html += '<div class="card"><h3>Reminders</h3>';
+    html += '<div style="font-size:13.5px; margin-bottom:10px; color:var(--ink);">Nightly birth control reminder at 8:00 PM</div>';
+    html += '<button class="btn '+(data.reminderEnabled?"btn-primary":"btn-secondary")+'" data-action="toggle-reminder">'+(data.reminderEnabled?"Reminder On ✓":"Enable Reminder")+'</button>';
+    html += '<button class="btn btn-outline" data-action="test-reminder">Send Test Reminder Now</button>';
+    html += '<div class="empty-note">Keep this tab open in your browser (it can be in the background) so the reminder can fire each night.</div>';
+    html += '</div>';
+    html += '<div class="card"><h3>Data</h3>';
+    html += '<button class="btn btn-danger" data-action="reset-data">Reset All Data</button>';
+    html += '</div>';
+    html += '<div class="empty-note">made with care, just for you 💗</div>';
+    return html;
+  }
+
+  // ---------- Sheet (day detail) ----------
+  function renderSheet(){
+    var existing = document.getElementById("sheet-overlay");
+    if(existing) existing.remove();
+    if(!state.sheet) return;
+    var d = state.sheet;
+    var overlay = document.createElement("div");
+    overlay.className = "sheet-overlay";
+    overlay.id = "sheet-overlay";
+    var dateObj = parseD(d);
+    var st = dayStatus(dateObj);
+    var log = data.logs[d] || {};
+    var label = st.period ? "Period" : st.ovulation ? "Ovulation Day" : st.fertile ? "Fertile Window" : st.predictedPeriod ? "Predicted Period" : "";
+
+    var html = '<div class="sheet"><div class="sheet-handle"></div>';
+    html += '<div class="sheet-title">'+niceDateFull(dateObj)+'</div>';
+    html += '<div class="sheet-sub">'+(label||"No prediction data")+'</div>';
+    if(log.flow || (log.symptoms&&log.symptoms.length) || log.mood || log.sex){
+      html += '<div style="font-size:13.5px; margin-bottom:12px;">';
+      if(log.flow && log.flow!=="None") html += 'Flow: <strong>'+log.flow+'</strong><br>';
+      if(log.mood) html += 'Mood: <strong>'+log.mood+'</strong><br>';
+      if(log.symptoms&&log.symptoms.length) html += 'Symptoms: <strong>'+log.symptoms.join(", ")+'</strong><br>';
+      if(log.sex) html += 'Intimate: <strong>Yes 💗</strong>';
+      html += '</div>';
+    }
+    html += insightCardHTML(d);
+    html += '<button class="btn btn-outline" data-action="log-this-day">Log This Day</button>';
+    html += '<button class="btn btn-secondary" data-action="mark-period-start" style="margin-top:8px;">Mark Period Start</button>';
+    html += '<button class="btn btn-outline" data-action="close-sheet" style="margin-top:8px;">Close</button>';
+    html += '</div>';
+    overlay.innerHTML = html;
+    document.getElementById("phone").appendChild(overlay);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ overlay.classList.add("show"); }); });
+
+    function closeSheet(after){
+      overlay.classList.remove("show");
+      setTimeout(function(){ state.sheet = null; if(after) after(); else renderSheet(); }, 320);
+    }
+
+    overlay.addEventListener("click", function(e){
+      if(e.target===overlay) closeSheet();
+    });
+    overlay.querySelector('[data-action="close-sheet"]').onclick = function(){ closeSheet(); };
+    overlay.querySelector('[data-action="log-this-day"]').onclick = function(){
+      closeSheet(function(){ state.logDate = d; state.tab="log"; render(); });
+    };
+    overlay.querySelector('[data-action="mark-period-start"]').onclick = function(){
+      data.periods.push({start:d, end:null});
+      saveData();
+      toast("Period start logged for "+niceDate(dateObj));
+      closeSheet(function(){ render(); });
+    };
+  }
+
+  // ---------- event binding for main content ----------
+  var pendingLogSelections = { flow:null, symptoms:null, mood:null, sex:false };
+
+  function bindTabEvents(){
+    // action buttons
+    Array.prototype.forEach.call(document.querySelectorAll("[data-action]"), function(el){
+      var action = el.getAttribute("data-action");
+      if(["log-this-day","mark-period-start","close-sheet"].indexOf(action)>-1) return; // handled in sheet
+      el.onclick = function(){ handleAction(action); };
+    });
+    // calendar nav
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cal]"), function(el){
+      el.onclick = function(){
+        var dir = el.getAttribute("data-cal")==="prev" ? -1 : 1;
+        state.calMonth = new Date(state.calMonth.getFullYear(), state.calMonth.getMonth()+dir, 1);
+        render();
+      };
+    });
+    // calendar days
+    Array.prototype.forEach.call(document.querySelectorAll("[data-day]"), function(el){
+      el.onclick = function(){ state.sheet = el.getAttribute("data-day"); renderSheet(); };
+    });
+    // log date change
+    var logDateInput = document.getElementById("log-date");
+    if(logDateInput){
+      logDateInput.onchange = function(){ state.logDate = logDateInput.value; render(); };
+    }
+    // chips
+    initChipTracking();
+    Array.prototype.forEach.call(document.querySelectorAll("[data-flow]"), function(el){
+      el.onclick = function(){
+        Array.prototype.forEach.call(document.querySelectorAll("[data-flow]"), function(x){ x.classList.remove("active"); });
+        el.classList.add("active");
+        pendingLogSelections.flow = el.getAttribute("data-flow");
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-symptom]"), function(el){
+      el.onclick = function(){
+        el.classList.toggle("active");
+        var s = el.getAttribute("data-symptom");
+        var idx = pendingLogSelections.symptoms.indexOf(s);
+        if(idx>-1) pendingLogSelections.symptoms.splice(idx,1); else pendingLogSelections.symptoms.push(s);
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-mood]"), function(el){
+      el.onclick = function(){
+        var wasActive = el.classList.contains("active");
+        Array.prototype.forEach.call(document.querySelectorAll("[data-mood]"), function(x){ x.classList.remove("active"); });
+        if(!wasActive){ el.classList.add("active"); pendingLogSelections.mood = el.getAttribute("data-mood"); }
+        else pendingLogSelections.mood = null;
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-sex]"), function(el){
+      el.onclick = function(){
+        Array.prototype.forEach.call(document.querySelectorAll("[data-sex]"), function(x){ x.classList.remove("active"); });
+        el.classList.add("active");
+        pendingLogSelections.sex = el.getAttribute("data-sex") === "Yes";
+      };
+    });
+  }
+
+  function initChipTracking(){
+    var d = state.logDate || fmt(today());
+    var log = data.logs[d] || {flow:"None", symptoms:[], mood:null, sex:false};
+    pendingLogSelections.flow = log.flow || "None";
+    pendingLogSelections.symptoms = (log.symptoms||[]).slice();
+    pendingLogSelections.mood = log.mood || null;
+    pendingLogSelections.sex = !!log.sex;
+  }
+
+  function handleAction(action){
+    var t = today();
+    if(action==="start-period"){
+      data.periods.push({start:fmt(t), end:null});
+      saveData(); toast("Period start logged"); render();
+    } else if(action==="end-period"){
+      var active = data.periods.find(function(p){ return !p.end; });
+      if(active){ active.end = fmt(t); saveData(); toast("Period end logged"); render(); }
+    } else if(action==="log-today"){
+      state.logDate = fmt(t); state.tab="log"; render();
+    } else if(action==="save-log"){
+      var d = document.getElementById("log-date").value || fmt(t);
+      var notes = document.getElementById("log-notes").value;
+      data.logs[d] = {
+        flow: pendingLogSelections.flow || "None",
+        symptoms: pendingLogSelections.symptoms || [],
+        mood: pendingLogSelections.mood,
+        sex: !!pendingLogSelections.sex,
+        notes: notes
+      };
+      saveData(); toast("Entry saved"); render();
+    } else if(action==="save-settings"){
+      data.cycleLength = parseInt(document.getElementById("set-cycle").value,10) || 28;
+      data.periodLength = parseInt(document.getElementById("set-period").value,10) || 5;
+      saveData(); toast("Settings saved"); render();
+    } else if(action==="toggle-reminder"){
+      if(data.reminderEnabled){ data.reminderEnabled = false; saveData(); toast("Reminder turned off"); render(); }
+      else { enableReminders(); }
+    } else if(action==="test-reminder"){
+      if(("Notification" in window) && Notification.permission==="granted"){ fireReminderNotification(); toast("Test reminder sent"); }
+      else { toast("Enable the reminder first to grant permission"); }
+    } else if(action==="reset-data"){
+      if(confirm("This will permanently erase all logged data. Continue?")){
+        localStorage.removeItem(STORAGE_KEY);
+        data = loadData();
+        state = { tab:"home", calMonth:null, sheet:null, logDate:null };
+        render();
+      }
+    }
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
